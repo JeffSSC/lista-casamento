@@ -173,7 +173,7 @@ export default function Home() {
       <div className="max-w-4xl mx-auto relative z-10">
         <header className="text-center mb-16 space-y-6 animate-in slide-in-from-top-10 fade-in duration-700">
           <h1 className="text-5xl md:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 drop-shadow-sm">
-            Lista de Casamento
+            Casamento Jefferson e Érica
           </h1>
           <p className="text-gray-700 text-xl max-w-2xl mx-auto leading-relaxed font-medium">
             Sua presença é nosso maior presente!<br />

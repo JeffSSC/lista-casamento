@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-// Tipo atualizado (sem imagem)
+
 type Gift = {
   id: number;
   name: string;
@@ -18,18 +18,22 @@ export default function Home() {
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados do Modal
+
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
   const [formName, setFormName] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formMessage, setFormMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Busca dados iniciais
+
+  const [showCustomGiftModal, setShowCustomGiftModal] = useState(false);
+  const [customGiftName, setCustomGiftName] = useState('');
+
+
   const fetchGifts = async () => {
     const { data, error } = await supabase.from('gifts').select('*').order('price', { ascending: false });
 
-    // ADICIONE ISSO AQUI:
+
     if (error) {
       console.log("Erro do Supabase:", error.message);
     } else {
@@ -42,14 +46,14 @@ export default function Home() {
 
   useEffect(() => {
     fetchGifts();
-    // Atualização em tempo real (opcional)
+
     const subscription = supabase.channel('gifts')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'gifts' }, fetchGifts)
       .subscribe();
     return () => { subscription.unsubscribe(); }
   }, []);
 
-  // Função de Confirmar Compra
+
   const handleConfirmPurchase = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedGift) return;
@@ -75,11 +79,44 @@ export default function Home() {
     setIsSubmitting(false);
   };
 
+  const handleCreateCustomGift = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const { error } = await supabase
+      .from('gifts')
+      .insert([
+        {
+          name: customGiftName,
+          price: 0,
+          link: '#', // Sem link para customizados
+          available: false, // Já nasce comprado
+          buyer_name: formName,
+          buyer_phone: formPhone,
+          buyer_message: formMessage
+        }
+      ]);
+
+    if (error) {
+      console.error(error);
+      alert('Erro ao adicionar presente. Tente novamente.');
+    } else {
+      setShowCustomGiftModal(false);
+      setCustomGiftName('');
+      setFormName('');
+      setFormPhone('');
+      setFormMessage('');
+      fetchGifts();
+      alert('Presente adicionado com sucesso! Obrigado pelo carinho! ❤️');
+    }
+    setIsSubmitting(false);
+  };
+
   const expensiveGifts = gifts.filter(g => g.price >= PRICE_THRESHOLD);
   const cheapGifts = gifts.filter(g => g.price < PRICE_THRESHOLD);
   const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
-  // --- CARD COMPACTO (Sem Imagem) ---
+
   const GiftCard = ({ item, type }: { item: Gift, type: 'gold' | 'silver' }) => (
     <div className={`
       relative p-5 rounded-2xl bg-white flex items-center justify-between gap-4 transition-all duration-300 group/card
@@ -87,7 +124,7 @@ export default function Home() {
       ${type === 'gold' ? 'border-l-[6px] border-amber-400' : 'border-l-[6px] border-slate-300'} 
     `}>
 
-      {/* Esquerda: Checkbox + Informações */}
+
       <div className="flex items-center gap-4 flex-1">
         {item.available ? (
           <div className="relative group">
@@ -105,7 +142,7 @@ export default function Home() {
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
             </div>
-            {/* Tooltip simples */}
+
             <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block w-max bg-gray-900 text-white text-xs font-bold py-1 px-2 rounded shadow-lg">
               Marcar como comprado
             </span>
@@ -126,7 +163,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Direita: Link da Loja */}
+
       <a
         href={item.link}
         target="_blank"
@@ -153,9 +190,19 @@ export default function Home() {
           <h1 className="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg tracking-tight mb-3">
             Lista de Presentes
           </h1>
-          <p className="text-white/90 text-lg md:text-xl font-medium max-w-2xl mx-auto leading-relaxed">
+          <p className="text-white/90 text-lg md:text-xl font-medium max-w-2xl mx-auto leading-relaxed mb-6">
             Selecione a caixinha se você comprou o presente para nós ❤️
           </p>
+
+          <button
+            onClick={() => {
+              setFormName(''); setFormPhone(''); setFormMessage(''); setCustomGiftName('');
+              setShowCustomGiftModal(true);
+            }}
+            className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-semibold py-2 px-6 rounded-full backpack-blur-sm transition-all border border-white/30 text-sm md:text-base animate-in fade-in zoom-in duration-500"
+          >
+            <span>✨</span> Seu presente não está na lista? Adicione ele aqui
+          </button>
         </header>
 
         {loading ? (
@@ -166,7 +213,7 @@ export default function Home() {
         ) : (
           <div className="grid md:grid-cols-2 gap-8 md:gap-12">
 
-            {/* Coluna 1 */}
+
             <section className="space-y-6">
               <div className="flex items-center gap-3 pb-4 border-b border-white/20 mb-4">
                 <span className="text-2xl filter drop-shadow">✨</span>
@@ -178,7 +225,7 @@ export default function Home() {
               {expensiveGifts.map(gift => <GiftCard key={gift.id} item={gift} type="gold" />)}
             </section>
 
-            {/* Coluna 2 */}
+
             <section className="space-y-6">
               <div className="flex items-center gap-3 pb-4 border-b border-white/20 mb-4">
                 <span className="text-2xl filter drop-shadow">🎁</span>
@@ -193,7 +240,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* MODAL */}
+
       {selectedGift && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
           <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-md w-full relative overflow-hidden">
@@ -243,6 +290,72 @@ export default function Home() {
                   className="flex-1 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold hover:shadow-lg hover:opacity-90 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Salvando...' : 'Confirmar Presente'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+
+      {showCustomGiftModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-md w-full relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 via-teal-500 to-emerald-500"></div>
+
+            <h3 className="text-2xl font-bold text-gray-800 mb-1">Adicionar Presente Especial</h3>
+            <p className="text-gray-600 mb-6 text-sm">
+              Que incrível! Adicione abaixo qual é o presente que você gostaria de nos dar.
+            </p>
+
+            <form onSubmit={handleCreateCustomGift} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 tracking-wider">O que é o presente?</label>
+                <input
+                  required type="text"
+                  className="w-full border text-gray-600 border-gray-200 bg-gray-50 rounded-lg p-3 focus:ring-2 focus:ring-teal-500 focus:bg-white focus:border-transparent outline-none transition-all"
+                  value={customGiftName} onChange={e => setCustomGiftName(e.target.value)} placeholder="Ex: Um jantar romântico, Uma viagem..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 tracking-wider">Seu Nome</label>
+                <input
+                  required type="text"
+                  className="w-full border text-gray-600 border-gray-200 bg-gray-50 rounded-lg p-3 focus:ring-2 focus:ring-teal-500 focus:bg-white focus:border-transparent outline-none transition-all"
+                  value={formName} onChange={e => setFormName(e.target.value)} placeholder="Ex: Tio João"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 tracking-wider">Telefone / WhatsApp</label>
+                <input
+                  required type="tel"
+                  className="w-full border text-gray-600 border-gray-200 bg-gray-50 rounded-lg p-3 focus:ring-2 focus:ring-teal-500 focus:bg-white focus:border-transparent outline-none transition-all"
+                  value={formPhone} onChange={e => setFormPhone(e.target.value)} placeholder="(00) 00000-0000"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 tracking-wider">Recado aos noivos</label>
+                <textarea
+                  className="w-full border text-gray-600 border-gray-200 bg-gray-50 rounded-lg p-3 h-24 focus:ring-2 focus:ring-teal-500 focus:bg-white focus:border-transparent outline-none resize-none transition-all"
+                  value={formMessage} onChange={e => setFormMessage(e.target.value)} placeholder="Deixe uma mensagem carinhosa..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button" onClick={() => setShowCustomGiftModal(false)}
+                  className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit" disabled={isSubmitting}
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold hover:shadow-lg hover:opacity-90 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? 'Salvando...' : 'Adicionar Presente'}
                 </button>
               </div>
             </form>

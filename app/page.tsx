@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useToast } from './components/ui/ToastContext';
 import QRCode from 'react-qr-code';
 
 type Gift = {
@@ -17,9 +18,10 @@ const PRICE_THRESHOLD = 200;
 
 export default function Home() {
   const [gifts, setGifts] = useState<Gift[]>([]);
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
-  const [selectedCategory, setSelectedCategory] = useState<'essential' | 'custom'>('essential');
+  const [selectedCategory, setSelectedCategory] = useState<'essential' | 'purchased'>('essential');
 
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
   const [formName, setFormName] = useState('');
@@ -27,15 +29,14 @@ export default function Home() {
   const [formMessage, setFormMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [showCustomGiftModal, setShowCustomGiftModal] = useState(false);
   const [showPixModal, setShowPixModal] = useState(false);
-  const [customGiftName, setCustomGiftName] = useState('');
 
   const fetchGifts = async () => {
     const { data, error } = await supabase.from('gifts').select('*').order('price', { ascending: false });
 
     if (error) {
-      console.log("Erro do Supabase:", error.message);
+      console.error("Erro do Supabase:", error.message);
+      toast.error("Erro ao carregar presentes.");
     } else {
       console.log("Dados recebidos:", data);
     }
@@ -70,7 +71,7 @@ export default function Home() {
       .eq('id', selectedGift.id);
 
     if (error) {
-      alert('Erro ao confirmar. Tente novamente.');
+      toast.error('Erro ao confirmar. Tente novamente.');
     } else {
       setSelectedGift(null);
       fetchGifts();
@@ -78,41 +79,19 @@ export default function Home() {
     setIsSubmitting(false);
   };
 
-  const handleCreateCustomGift = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
 
-    const { error } = await supabase
-      .from('gifts')
-      .insert([
-        {
-          name: customGiftName,
-          price: 0,
-          link: '#', // Sem link para customizados
-          available: false, // Já nasce comprado
-          category: 'custom', // Categoria fixa para personalizados
-          buyer_name: formName,
-          buyer_phone: formPhone,
-          buyer_message: formMessage
-        }
-      ]);
-
-    if (error) {
-      console.error(error);
-      alert('Erro ao adicionar presente. Tente novamente.');
-    } else {
-      setShowCustomGiftModal(false);
-      setCustomGiftName('');
-      setFormName('');
-      setFormPhone('');
-      setFormMessage('');
-      fetchGifts();
-      alert('Presente adicionado com sucesso! Obrigado!');
-    }
-    setIsSubmitting(false);
-  };
 
   const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+  const formatPhone = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    const char = { 0: '(', 2: ') ', 7: '-' };
+    let phone = '';
+    for (let i = 0; i < numbers.length; i++) {
+      phone += (char[i as keyof typeof char] || '') + numbers[i];
+    }
+    return phone.substring(0, 15);
+  };
 
   const GiftCard = ({ item }: { item: Gift }) => (
     <div className={`
@@ -217,6 +196,14 @@ export default function Home() {
                 <span className="text-gray-600 font-normal">Joinville - Santa Catarina</span>
               </p>
             </div>
+
+            <div className="bg-amber-100 px-6 py-3 rounded-xl border border-amber-300 shadow-sm max-w-lg w-full mt-4 flex items-center justify-center gap-3 animate-in slide-in-from-bottom-2 fade-in duration-700">
+              <span className="text-2xl">⚡</span>
+              <p className="text-amber-800 font-bold text-sm md:text-base text-center">
+                Atenção: A voltagem daqui é <span className="text-amber-900 border-b-2 border-amber-900/40">220V</span>!
+              </p>
+              <span className="text-2xl">⚡</span>
+            </div>
           </div>
         </header>
 
@@ -234,13 +221,14 @@ export default function Home() {
                   onClick={() => setSelectedCategory('essential')}
                   className={`relative z-10 px-8 py-2 rounded-full text-sm font-bold transition-all duration-300 ${selectedCategory === 'essential' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                  Presentes Essenciais
+                  Presentes
                 </button>
+
                 <button
-                  onClick={() => setSelectedCategory('custom')}
-                  className={`relative z-10 px-8 py-2 rounded-full text-sm font-bold transition-all duration-300 ${selectedCategory === 'custom' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  onClick={() => setSelectedCategory('purchased')}
+                  className={`relative z-10 px-8 py-2 rounded-full text-sm font-bold transition-all duration-300 ${selectedCategory === 'purchased' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                  Presentes Personalizados
+                  Já Comprados
                 </button>
               </div>
 
@@ -267,38 +255,25 @@ export default function Home() {
               </div>
             </div>
 
-            {gifts.filter(g => g.category === selectedCategory).length === 0 && (
-              <div className="text-center py-16 text-gray-500 bg-white/60 backdrop-blur-md rounded-2xl shadow-lg border border-white">
-                <p className="text-xl">
-                  {selectedCategory === 'essential' ? 'Lista de essenciais vazia!' : 'Nenhum item personalizado ainda...'}
-                </p>
-                <p className="text-sm mt-2">Que tal adicionar um?</p>
-              </div>
-            )}
-
-            {/* Custom Gift Card - Moved to Top */}
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-0 mb-4">
-              <button
-                onClick={() => {
-                  setFormName(''); setFormPhone(''); setFormMessage(''); setCustomGiftName('');
-                  setShowCustomGiftModal(true);
-                }}
-                className="w-full relative px-4 py-2.5 rounded-lg border-2 border-dashed border-pink-300 bg-white/50 hover:bg-white/80 transition-all duration-300 group flex items-center justify-center gap-3 hover:border-pink-500 hover:shadow-md cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-500 group-hover:bg-pink-500 group-hover:text-white transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                  </svg>
+            {gifts.filter(g => {
+              if (selectedCategory === 'purchased') return !g.available;
+              return g.available;
+            }).length === 0 && (
+                <div className="text-center py-16 text-gray-500 bg-white/60 backdrop-blur-md rounded-2xl shadow-lg border border-white">
+                  <p className="text-xl">
+                    {selectedCategory === 'essential'
+                      ? 'Lista de presentes vazia! (Ou tudo já foi comprado 🎉)'
+                      : 'Nenhum presente comprado ainda.'}
+                  </p>
+                  {selectedCategory !== 'purchased' && <p className="text-sm mt-2">Que tal adicionar um?</p>}
                 </div>
-                <div className="text-left">
-                  <h3 className="text-sm font-bold text-gray-700 group-hover:text-pink-700 transition-colors">Adicionar Presente Personalizado</h3>
-                  <p className="text-xs text-gray-500">Não encontrou o que queria? Clique aqui!</p>
-                </div>
-              </button>
-            </div>
+              )}
 
             {[...gifts]
-              .filter(gift => gift.category === selectedCategory)
+              .filter(gift => {
+                if (selectedCategory === 'purchased') return !gift.available;
+                return gift.available;
+              })
               .sort((a, b) => sortOrder === 'desc' ? b.price - a.price : a.price - b.price)
               .map((gift, index) => (
                 <div key={gift.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${index * 30}ms` }}>
@@ -335,8 +310,11 @@ export default function Home() {
                 <input
                   required type="tel"
                   className="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-800 font-medium focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/10 outline-none transition-all placeholder:text-gray-300"
-                  value={formPhone} onChange={e => setFormPhone(e.target.value)}
+                  value={formPhone} onChange={e => setFormPhone(formatPhone(e.target.value))}
+
+                  maxLength={15}
                   placeholder="(00) 00000-0000"
+
                 />
               </div>
 
@@ -368,74 +346,7 @@ export default function Home() {
         </div>
       )}
 
-      {showCustomGiftModal && (
-        <div className="fixed inset-0 bg-indigo-900/40 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in zoom-in duration-300">
-          <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-10 max-w-md w-full border border-white/50 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-teal-400 via-emerald-400 to-green-400"></div>
 
-            <h3 className="text-3xl font-extrabold mb-2 text-gray-800 tracking-tight">Algo Especial!</h3>
-            <p className="text-gray-600 mb-8 font-medium">
-              Que ideia incrível! Conte para nós o que você gostaria de dar.
-            </p>
-
-            <form onSubmit={handleCreateCustomGift} className="space-y-6">
-              <div className="group">
-                <label className="block text-sm font-bold text-gray-500 uppercase tracking-widest mb-2 group-focus-within:text-teal-500 transition-colors">O que é o presente?</label>
-                <input
-                  required type="text"
-                  className="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-800 font-medium focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-500/10 outline-none transition-all placeholder:text-gray-300"
-                  value={customGiftName} onChange={e => setCustomGiftName(e.target.value)}
-                  placeholder="Ex: Jantar, Passeio de Barco..."
-                />
-              </div>
-
-              <div className="group">
-                <label className="block text-sm font-bold text-gray-500 uppercase tracking-widest mb-2 group-focus-within:text-teal-500 transition-colors">Seu Nome</label>
-                <input
-                  required type="text"
-                  className="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-800 font-medium focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-500/10 outline-none transition-all placeholder:text-gray-300"
-                  value={formName} onChange={e => setFormName(e.target.value)}
-                  placeholder="Seu nome completo"
-                />
-              </div>
-
-              <div className="group">
-                <label className="block text-sm font-bold text-gray-500 uppercase tracking-widest mb-2 group-focus-within:text-teal-500 transition-colors">WhatsApp</label>
-                <input
-                  required type="tel"
-                  className="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-800 font-medium focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-500/10 outline-none transition-all placeholder:text-gray-300"
-                  value={formPhone} onChange={e => setFormPhone(e.target.value)}
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
-
-              <div className="group">
-                <label className="block text-sm font-bold text-gray-500 uppercase tracking-widest mb-2 group-focus-within:text-teal-500 transition-colors">Mensagem</label>
-                <textarea
-                  className="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-800 font-medium h-28 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-500/10 outline-none resize-none transition-all placeholder:text-gray-300"
-                  value={formMessage} onChange={e => setFormMessage(e.target.value)}
-                  placeholder="Mande boas vibes junto com o presente!"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button" onClick={() => setShowCustomGiftModal(false)}
-                  className="flex-1 py-3.5 rounded-xl border-2 border-gray-200 text-gray-500 font-bold hover:bg-gray-50 hover:text-gray-700 hover:border-gray-300 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit" disabled={isSubmitting}
-                  className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold hover:shadow-lg hover:shadow-teal-500/30 hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? 'Adicionar' : 'Adicionar'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {showPixModal && (
         <div className="fixed inset-0 bg-indigo-900/40 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in zoom-in duration-300">
@@ -472,7 +383,7 @@ export default function Home() {
               <button
                 onClick={() => {
                   navigator.clipboard.writeText('ericabel2603@gmail.com');
-                  alert('Chave Pix copiada!');
+                  toast.success('Chave Pix copiada!');
                 }}
                 className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
               >

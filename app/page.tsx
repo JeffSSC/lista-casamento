@@ -240,7 +240,7 @@ export default function Home() {
           </h1>
           <p className="text-gray-700 text-base md:text-lg max-w-2xl mx-auto leading-relaxed font-medium mt-2">
             Sua presença é nosso maior presente!<br />
-            Mas se quiser nos mimar, escolha algo especial abaixo!
+            Mas se quiser nos mimar, escolha algo especial abaixo ou sinta-se a vontade para adicionar um presente especial!
           </p>
 
           <div className="pt-2 flex flex-col items-center justify-center gap-6">

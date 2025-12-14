@@ -166,6 +166,69 @@ export default function Home() {
     </div>
   );
 
+  const [showAddGiftModal, setShowAddGiftModal] = useState(false);
+  const [customGiftName, setCustomGiftName] = useState('');
+
+  const handleAddCustomGift = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const { data: giftData, error: giftError } = await supabase
+      .from('gifts')
+      .insert({
+        name: customGiftName,
+        price: 0, // Custom gifts have no fixed price in this flow
+        available: false, // Already purchased by the creator
+        category: 'custom',
+        link: '', // No link for custom gifts
+        buyer_name: formName,
+        buyer_phone: formPhone,
+        buyer_message: formMessage
+      })
+      .select()
+      .single();
+
+    if (giftError) {
+      console.error(giftError);
+      toast.error('Erro ao adicionar presente. Tente novamente.');
+    } else {
+      toast.success('Presente adicionado com sucesso!');
+      setShowAddGiftModal(false);
+      setCustomGiftName('');
+      setFormName('');
+      setFormPhone('');
+      setFormMessage('');
+      fetchGifts();
+    }
+    setIsSubmitting(false);
+  };
+
+  const AddCustomGiftCard = () => (
+    <div
+      onClick={() => setShowAddGiftModal(true)}
+      className="cursor-pointer relative px-4 py-3 rounded-lg bg-gradient-to-r from-pink-50 to-purple-50 hover:from-pink-100 hover:to-purple-100 border border-dashed border-pink-300 hover:border-pink-400 shadow-sm hover:shadow-md flex items-center justify-between gap-4 transition-all duration-300 group hover:scale-[1.01]"
+    >
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 overflow-hidden">
+          <span className="font-bold text-sm sm:text-base text-gray-700 group-hover:text-pink-700 transition-colors truncate">
+            ✨ Quero dar algo diferente
+          </span>
+          <span className="text-gray-500 text-xs sm:text-sm">
+            Adicione um presente personalizado
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 shrink-0">
+        <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-pink-500 shadow-sm group-hover:text-pink-600 transition-colors">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </span>
+      </div>
+    </div>
+  );
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-rose-100 via-purple-100 to-indigo-100 p-4 md:p-8 font-sans text-gray-800 selection:bg-pink-200 selection:text-pink-900 overflow-x-hidden">
 
@@ -193,7 +256,8 @@ export default function Home() {
               </h3>
               <p className="text-gray-800 font-medium text-lg leading-relaxed">
                 Rua Guilherme Zilmann, 186, Casa 172<br />
-                <span className="text-gray-600 font-normal">Joinville - Santa Catarina</span>
+                <span className="text-gray-600 font-normal">Joinville - Santa Catarina</span><br />
+                <span className="text-gray-500 font-normal text-sm">CEP 89237-090</span>
               </p>
             </div>
 
@@ -254,6 +318,9 @@ export default function Home() {
                 </button>
               </div>
             </div>
+
+            {/* Custom Gift Card - Only in 'essential' tab */}
+            {selectedCategory === 'essential' && <AddCustomGiftCard />}
 
             {gifts.filter(g => {
               if (selectedCategory === 'purchased') return !g.available;
@@ -346,13 +413,82 @@ export default function Home() {
         </div>
       )}
 
+      {showAddGiftModal && (
+        <div className="fixed inset-0 bg-indigo-900/40 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in zoom-in duration-300">
+          <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-10 max-w-md w-full border border-white/50 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400"></div>
 
+            <h3 className="text-2xl font-extrabold mb-2 text-pink-600 tracking-tight">Presentear Algo Diferente</h3>
+            <p className="text-gray-600 mb-6 font-medium text-sm">
+              Que ideia incrível! Conte pra gente o que você gostaria de dar.
+            </p>
+
+            <form onSubmit={handleAddCustomGift} className="space-y-4">
+              <div className="group">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">O que é o presente?</label>
+                <input
+                  required type="text"
+                  className="w-full bg-gray-50 border-2 border-gray-200 rounded-lg px-3 py-2 text-gray-800 font-medium focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-500/10 outline-none transition-all"
+                  value={customGiftName} onChange={e => setCustomGiftName(e.target.value)}
+                  placeholder="Ex: Jantar no restaurante X..."
+                />
+              </div>
+
+              <div className="h-px bg-gray-100 my-4"></div>
+
+              <div className="group">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Seu Nome</label>
+                <input
+                  required type="text"
+                  className="w-full bg-gray-50 border-2 border-gray-200 rounded-lg px-3 py-2 text-gray-800 font-medium focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-500/10 outline-none transition-all"
+                  value={formName} onChange={e => setFormName(e.target.value)}
+                  placeholder="Quem está presenteando?"
+                />
+              </div>
+
+              <div className="group">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">WhatsApp</label>
+                <input
+                  required type="tel"
+                  className="w-full bg-gray-50 border-2 border-gray-200 rounded-lg px-3 py-2 text-gray-800 font-medium focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-500/10 outline-none transition-all"
+                  value={formPhone} onChange={e => setFormPhone(formatPhone(e.target.value))}
+                  maxLength={15}
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+
+              <div className="group">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Mensagem</label>
+                <textarea
+                  className="w-full bg-gray-50 border-2 border-gray-200 rounded-lg px-3 py-2 text-gray-800 font-medium h-20 focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-500/10 outline-none resize-none transition-all"
+                  value={formMessage} onChange={e => setFormMessage(e.target.value)}
+                  placeholder="Mensagem..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button" onClick={() => setShowAddGiftModal(false)}
+                  className="flex-1 py-3 rounded-lg border-2 border-gray-200 text-gray-500 font-bold hover:bg-gray-50 hover:text-gray-700 transition-all text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit" disabled={isSubmitting}
+                  className="flex-1 py-3 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold hover:shadow-lg hover:shadow-pink-500/30 hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+                >
+                  {isSubmitting ? 'Salvando...' : 'Adicionar Presente'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showPixModal && (
         <div className="fixed inset-0 bg-indigo-900/40 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in zoom-in duration-300">
           <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-10 max-w-sm w-full border border-white/50 relative overflow-hidden text-center">
             <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-teal-400 via-blue-500 to-indigo-500"></div>
-
             <button
               onClick={() => setShowPixModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"

@@ -11,7 +11,6 @@ type Gift = {
   price: number;
   link: string;
   available: boolean;
-  category: string;
 };
 
 const PRICE_THRESHOLD = 200;
@@ -179,7 +178,6 @@ export default function Home() {
         name: customGiftName,
         price: 0, // Custom gifts have no fixed price in this flow
         available: false, // Already purchased by the creator
-        category: 'custom',
         link: '', // No link for custom gifts
         buyer_name: formName,
         buyer_phone: formPhone,
